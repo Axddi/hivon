@@ -2,10 +2,37 @@
 
 import { useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
+import { useRouter } from "next/navigation"
+import { createUserIfNotExists } from "@/lib/createUserIfNotExists"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+
+  const router = useRouter()
+
+  const handleLogin = async () => {
+    setLoading(true)
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      alert(error.message)
+      setLoading(false)
+      return
+    }
+
+    if (data.user) {
+      await createUserIfNotExists(data.user)
+    }
+
+    setLoading(false)
+    router.push("/")
+  }
 
   const handleSignup = async () => {
     const { data, error } = await supabase.auth.signUp({
@@ -15,52 +42,39 @@ export default function LoginPage() {
 
     if (error) return alert(error.message)
 
-    if (data.user) {
-      await supabase.from("users").insert({
-        id: data.user.id,
-        email,
-        role: "viewer", 
-      })
-    }
-
-    alert("Signup successful!")
-  }
-
-  const handleLogin = async () => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (error) return alert(error.message)
-
-    alert("Login successful!")
+    alert("Signup successful! Now login.")
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen gap-4">
+    <div className="p-10 flex flex-col gap-4 max-w-md mx-auto">
       <h1 className="text-2xl font-bold">Login / Signup</h1>
 
       <input
-        type="email"
         placeholder="Email"
-        className="border p-2 w-64"
+        className="border p-2"
         onChange={(e) => setEmail(e.target.value)}
       />
 
       <input
         type="password"
         placeholder="Password"
-        className="border p-2 w-64"
+        className="border p-2"
         onChange={(e) => setPassword(e.target.value)}
       />
 
       <div className="flex gap-2">
-        <button onClick={handleLogin} className="bg-blue-500 text-white px-4 py-2">
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          className="bg-blue-500 text-white p-2"
+        >
           Login
         </button>
 
-        <button onClick={handleSignup} className="bg-green-500 text-white px-4 py-2">
+        <button
+          onClick={handleSignup}
+          className="bg-gray-500 text-white p-2"
+        >
           Signup
         </button>
       </div>

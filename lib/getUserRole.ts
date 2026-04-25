@@ -1,16 +1,20 @@
 import { supabase } from "./supabaseClient"
 
-export const getUserRole = async (userId: string) => {
+export const getUserRole = async () => {
+  const { data: userData } = await supabase.auth.getUser()
+
+  if (!userData.user) return null
+
   const { data, error } = await supabase
     .from("users")
     .select("role")
-    .eq("id", userId)
-    .single()
+    .eq("id", userData.user.id)
+    .maybeSingle() 
 
   if (error) {
-    console.error("Error fetching role:", error.message)
+    console.error("Role fetch error:", error)
     return null
   }
 
-  return data.role
+  return data?.role || "user" 
 }

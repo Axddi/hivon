@@ -1,16 +1,17 @@
-export const metadata = {
-  title: "Hivon Blog",
-  description: "AI Blogging Platform",
-};
+import "./globals.css"
+import Navbar from "@/components/Navbar"
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <Navbar />
+        {children}
+      </body>
     </html>
-  );
+  )
 }
