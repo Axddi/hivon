@@ -116,7 +116,6 @@ export default function Home() {
       return
     }
 
-    // Remove the post from the UI
     setPosts(posts.filter((p) => p.id !== postId))
   }
 
