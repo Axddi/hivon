@@ -16,5 +16,5 @@ export const getUserRole = async () => {
     return null
   }
 
-  return data?.role || "user" 
+  return data?.role || "viewer"
 }

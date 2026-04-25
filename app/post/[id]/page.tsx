@@ -1,83 +1,91 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import Comments from "@/components/Comments"
 import { supabase } from "@/lib/supabaseClient"
+import { useParams } from "next/navigation"
+import { useCallback, useEffect, useState } from "react"
 
-export default function PostPage({ params }: any) {
-  const [post, setPost] = useState<any>(null)
-  const [comments, setComments] = useState<any[]>([])
-  const [newComment, setNewComment] = useState("")
+type Post = {
+  id: string
+  title: string
+  body: string
+  image_url: string | null
+  summary: string | null
+}
 
-  useEffect(() => {
-    fetchPost()
-    fetchComments()
-  }, [])
+export default function PostPage() {
+  const { id } = useParams<{ id: string }>()
+  const [post, setPost] = useState<Post | null>(null)
+  const [userRole, setUserRole] = useState("viewer")
+  const [loading, setLoading] = useState(true)
 
-  const fetchPost = async () => {
+  const fetchPost = useCallback(async () => {
     const { data } = await supabase
       .from("posts")
-      .select("*")
-      .eq("id", params.id)
+      .select("id, title, body, image_url, summary")
+      .eq("id", id)
       .single()
 
     setPost(data)
-  }
+    setLoading(false)
+  }, [id])
 
-  const fetchComments = async () => {
-    const { data } = await supabase
-      .from("comments")
-      .select("*")
-      .eq("post_id", params.id)
-
-    setComments(data || [])
-  }
-
-  const addComment = async () => {
+  const fetchRole = useCallback(async () => {
     const { data: userData } = await supabase.auth.getUser()
+    if (!userData.user) return
 
-    await supabase.from("comments").insert({
-      content: newComment,
-      post_id: params.id,
-      user_id: userData.user?.id,
-    })
+    const { data } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", userData.user.id)
+      .single()
 
-    setNewComment("")
-    fetchComments()
+    setUserRole(data?.role || "viewer")
+  }, [])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchPost()
+    fetchRole()
+  }, [fetchPost, fetchRole])
+
+  if (loading) return <p className="p-10 text-black">Loading...</p>
+
+  if (!post) {
+    return <p className="p-10 text-black">Post not found</p>
   }
 
   return (
-    <div className="p-10">
-      {post && (
-        <>
-          <h1 className="text-2xl font-bold">{post.title}</h1>
-          <p>{post.content}</p>
-          <p className="text-gray-500 mt-2">{post.summary}</p>
-        </>
-      )}
+    <div className="min-h-screen bg-white">
+      <article className="max-w-2xl mx-auto p-6">
+        <h1 className="text-2xl font-bold text-black mb-4">{post.title}</h1>
 
-      <div className="mt-6">
-        <h2 className="font-semibold">Comments</h2>
+        {post.image_url && (
+          <img
+            src={post.image_url}
+            alt={post.title}
+            className="w-full h-64 object-cover rounded-lg mb-5"
+            onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+              e.currentTarget.style.display = "none"
+            }}
+          />
+        )}
 
-        <input
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          className="border p-2 w-full"
-          placeholder="Write a comment..."
-        />
-
-        <button
-          onClick={addComment}
-          className="bg-blue-500 text-white px-4 py-2 mt-2"
-        >
-          Add Comment
-        </button>
-
-        {comments.map((c) => (
-          <div key={c.id} className="border p-2 mt-2">
-            {c.content}
+        {post.summary && (
+          <div className="border-l-2 border-blue-500 pl-3 bg-blue-50 py-2 rounded-r-md mb-5">
+            <p className="text-xs font-medium text-blue-600 uppercase tracking-wide mb-1">
+              AI Summary
+            </p>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              {post.summary}
+            </p>
           </div>
-        ))}
-      </div>
+        )}
+
+        <p className="text-gray-800 leading-7 whitespace-pre-wrap">{post.body}</p>
+
+        <Comments postId={post.id} userRole={userRole} />
+      </article>
     </div>
   )
 }

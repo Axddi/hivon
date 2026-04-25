@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [isSignup, setIsSignup] = useState(false)
+  const [selectedRole, setSelectedRole] = useState<"author" | "viewer" | "admin">("viewer")
 
   const router = useRouter()
 
@@ -50,13 +51,21 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
+
     if (data.user) {
-      await createUserIfNotExists(data.user)
+      await supabase.from("users").insert({
+        id: data.user.id,
+        email: data.user.email,
+        role: selectedRole,
+      })
     }
 
     setLoading(false)
     alert("Signup successful! Please login.")
     setIsSignup(false)
+    setEmail("")
+    setPassword("")
+    setSelectedRole("viewer")
   }
 
   return (
@@ -68,7 +77,7 @@ export default function LoginPage() {
         </h1>
         <p className="text-sm text-gray-500 mb-6">
           {isSignup
-            ? "Sign up to start writing on Hivon"
+            ? "Sign up to start on Hivon"
             : "Login to your Hivon account"}
         </p>
 
@@ -91,10 +100,60 @@ export default function LoginPage() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              onKeyDown={(e) => e.key === "Enter" && (isSignup ? handleSignup() : handleLogin())}
               className="border border-gray-200 p-2.5 w-full rounded-lg text-black text-sm focus:outline-none focus:border-blue-400"
             />
           </div>
+
+          {isSignup && (
+            <div>
+              <label className="text-sm text-gray-600 mb-2 block">I want to:</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole("author")}
+                  className={`flex-1 p-3 rounded-lg border-2 text-sm font-medium transition-colors ${
+                    selectedRole === "author"
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  Author
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole("viewer")}
+                  className={`flex-1 p-3 rounded-lg border-2 text-sm font-medium transition-colors ${
+                    selectedRole === "viewer"
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  Viewer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole("admin")}
+                  className={`flex-1 p-3 rounded-lg border-2 text-sm font-medium transition-colors ${
+                    selectedRole === "admin"
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  Admin
+                </button>
+              </div>
+              {selectedRole === "author" && (
+                <p className="text-xs text-gray-500 mt-2">Create posts, edit your posts, and view comments on them.</p>
+              )}
+              {selectedRole === "viewer" && (
+                <p className="text-xs text-gray-500 mt-2">Read posts, summaries, and add comments.</p>
+              )}
+              {selectedRole === "admin" && (
+                <p className="text-xs text-gray-500 mt-2">View all posts, edit any post, and monitor comments.</p>
+              )}
+            </div>
+          )}
 
           {isSignup ? (
             <button
@@ -118,7 +177,12 @@ export default function LoginPage() {
         <p className="text-sm text-center text-gray-500 mt-4">
           {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
           <button
-            onClick={() => setIsSignup(!isSignup)}
+            onClick={() => {
+              setIsSignup(!isSignup)
+              setEmail("")
+              setPassword("")
+              setSelectedRole("viewer")
+            }}
             className="text-blue-600 hover:underline font-medium"
           >
             {isSignup ? "Login" : "Sign up"}

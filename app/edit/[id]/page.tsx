@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
+import { generateSummary } from "@/lib/ai"
 
 export default function EditPost() {
   const { id } = useParams()
@@ -10,10 +11,27 @@ export default function EditPost() {
 
   const [title, setTitle] = useState("")
   const [body, setBody] = useState("")
+  const [imageUrl, setImageUrl] = useState("")
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const fetchPost = async () => {
+      const { data: userData } = await supabase.auth.getUser()
+
+      if (!userData.user) {
+        router.push("/login")
+        return
+      }
+
+      const { data: roleData } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", userData.user.id)
+        .single()
+
+      const role = roleData?.role || "viewer"
+
       const { data, error } = await supabase
         .from("posts")
         .select("*")
@@ -26,8 +44,19 @@ export default function EditPost() {
         return
       }
 
+      const canEdit =
+        role === "admin" ||
+        (role === "author" && data.author_id === userData.user.id)
+
+      if (!canEdit) {
+        alert("Only the Author of this post or an Admin can edit it.")
+        router.push("/")
+        return
+      }
+
       setTitle(data.title)
       setBody(data.body)
+      setImageUrl(data.image_url || "")
       setLoading(false)
     }
 
@@ -35,13 +64,30 @@ export default function EditPost() {
   }, [id, router])
 
   const handleUpdate = async () => {
+    if (!title.trim() || !body.trim()) {
+      return alert("Title and content are required")
+    }
+
+    setSaving(true)
+
+    let summary = ""
+    try {
+      summary = await generateSummary(body)
+    } catch {
+      summary = "No summary available"
+    }
+
     const { error } = await supabase
       .from("posts")
       .update({
-        title,
-        body,
+        title: title.trim(),
+        body: body.trim(),
+        image_url: imageUrl.trim() || null,
+        summary,
       })
       .eq("id", id)
+
+    setSaving(false)
 
     if (error) {
       console.error(error)
@@ -69,7 +115,27 @@ export default function EditPost() {
         </div>
 
         <div>
-          <label className="text-sm text-gray-600 mb-1 block">Content</label>
+          <label className="text-sm text-gray-600 mb-1 block">Featured Image URL</label>
+          <input
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            placeholder="https://example.com/image.jpg"
+            className="border border-gray-200 p-2 w-full rounded-lg text-black placeholder-gray-400 focus:outline-none focus:border-blue-400"
+          />
+          {imageUrl && (
+            <img
+              src={imageUrl}
+              alt="Preview"
+              className="mt-2 w-full h-48 object-cover rounded-lg border border-gray-200"
+              onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                e.currentTarget.style.display = "none"
+              }}
+            />
+          )}
+        </div>
+
+        <div>
+          <label className="text-sm text-gray-600 mb-1 block">Body Content</label>
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
@@ -80,9 +146,10 @@ export default function EditPost() {
         <div className="flex gap-2">
           <button
             onClick={handleUpdate}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex-1"
+            disabled={saving}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex-1 disabled:opacity-50"
           >
-            Update
+            {saving ? "Updating..." : "Update"}
           </button>
           <button
             onClick={() => router.push("/")}

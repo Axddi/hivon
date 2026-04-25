@@ -1,16 +1,32 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { useRouter } from "next/navigation"
 import Comments from "@/components/Comments"
+import type { User } from "@supabase/supabase-js"
+
+type Post = {
+  id: string
+  title: string
+  body: string
+  image_url: string | null
+  summary: string | null
+  author_id: string
+  created_at: string
+  users: {
+    email: string | null
+    role: string | null
+    id: string | null
+  } | null
+}
 
 export default function Home() {
   const POSTS_PER_PAGE = 5
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-  const [posts, setPosts] = useState<any[]>([])
-  const [user, setUser] = useState<any>(null)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [user, setUser] = useState<User | null>(null)
   const [userRole, setUserRole] = useState("")
   const [loading, setLoading] = useState(true)
   const [showMine, setShowMine] = useState(false)
@@ -19,39 +35,7 @@ export default function Home() {
   const totalPages = Math.ceil(totalCount / POSTS_PER_PAGE)
   const router = useRouter()
 
-  useEffect(() => {
-    init()
-    const channel = supabase
-      .channel("posts-feed")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "posts" },
-        () => fetchPosts()
-      )
-      .subscribe()
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [showMine, page])
-
-  const init = async () => {
-    const { data } = await supabase.auth.getUser()
-    setUser(data.user)
-
-    if (data.user) {
-      const { data: userData } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", data.user.id)
-        .single()
-      setUserRole(userData?.role || "viewer")
-    }
-
-    await fetchPosts(data.user)
-    setLoading(false)
-  }
-
-  const fetchPosts = async (currentUser?: any) => {
+  const fetchPosts = useCallback(async (currentUser?: User | null) => {
     const from = (page - 1) * POSTS_PER_PAGE
     const to = from + POSTS_PER_PAGE - 1
 
@@ -72,7 +56,44 @@ export default function Home() {
     const { data, count } = await query
     setPosts(data || [])
     setTotalCount(count || 0)
-  }
+  }, [page, search, showMine])
+
+  const init = useCallback(async () => {
+    const { data } = await supabase.auth.getUser()
+    setUser((currentUser) =>
+      currentUser?.id === data.user?.id ? currentUser : data.user
+    )
+
+    if (data.user) {
+      const { data: userData } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", data.user.id)
+        .single()
+      setUserRole(userData?.role || "viewer")
+    } else {
+      setUserRole("viewer")
+    }
+
+    await fetchPosts(data.user)
+    setLoading(false)
+  }, [fetchPosts])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    init()
+    const channel = supabase
+      .channel("posts-feed")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "posts" },
+        () => fetchPosts(user)
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [fetchPosts, init, user])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -111,14 +132,14 @@ export default function Home() {
   const getInitials = (email: string) =>
     email?.split("@")[0].slice(0, 2).toUpperCase() || "??"
 
-  const getAuthorName = (post: any) => {
+  const getAuthorName = (post: Post) => {
     if (post.users?.email) {
       return post.users.email.split("@")[0]
     }
     return "unknown"
   }
 
-  const getAuthorEmail = (post: any) => {
+  const getAuthorEmail = (post: Post) => {
     return post.users?.email || ""
   }
 
@@ -181,12 +202,14 @@ export default function Home() {
                 >
                   Mine
                 </button>
-                <button
-                  onClick={() => router.push("/create-post")}
-                  className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
-                >
-                  + Post
-                </button>
+                {(userRole === "author" || userRole === "admin") && (
+                  <button
+                    onClick={() => router.push("/create-post")}
+                    className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    + Post
+                  </button>
+                )}
                 <button
                   onClick={handleLogout}
                   className="bg-red-500 text-white px-3 py-1.5 rounded-md text-sm hover:bg-red-600 transition-colors"
@@ -218,7 +241,8 @@ export default function Home() {
                 post.summary !== "Summary failed" &&
                 post.summary !== "No summary available"
               const canEdit =
-                userRole === "admin" || user?.id === post.author_id
+                userRole === "admin" ||
+                (userRole === "author" && user?.id === post.author_id)
               return (
                 <div
                   key={post.id}
@@ -263,7 +287,9 @@ export default function Home() {
                       src={post.image_url}
                       alt={post.title}
                       className="w-full h-48 object-cover rounded-lg mb-3"
-                      onError={(e: any) => (e.target.style.display = "none")}
+                      onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                        e.currentTarget.style.display = "none"
+                      }}
                     />
                   )}
                   <p className="text-sm text-gray-700 leading-relaxed mb-3 line-clamp-3">
@@ -297,7 +323,7 @@ export default function Home() {
                       </button>
                     </div>
                   )}
-                  <Comments postId={post.id} />
+                  <Comments postId={post.id} userRole={userRole} />
                 </div>
               )
             })}

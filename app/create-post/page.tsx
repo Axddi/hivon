@@ -3,15 +3,17 @@
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { useRouter } from "next/navigation"
-import { getUserRole } from "@/lib/getUserRole"
 import { generateSummary } from "@/lib/ai"
+import type { User } from "@supabase/supabase-js"
 
 export default function CreatePost() {
   const [title, setTitle] = useState("")
   const [body, setBody] = useState("")
   const [imageUrl, setImageUrl] = useState("")
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [userRole, setUserRole] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [canCreate, setCanCreate] = useState(false)
 
   const router = useRouter()
 
@@ -20,40 +22,36 @@ export default function CreatePost() {
       const { data } = await supabase.auth.getUser()
       if (!data.user) {
         router.push("/login")
-      } else {
-        setUser(data.user)
+        return
       }
+
+      setUser(data.user)
+
+      const { data: userData } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", data.user.id)
+        .single()
+
+      const role = userData?.role || "viewer"
+      setUserRole(role)
+      setCanCreate(role === "author" || role === "admin")
+      setLoading(false)
     }
     checkUser()
   }, [router])
 
   const handleSubmit = async () => {
+    if (!canCreate) {
+      return alert("Only Authors and Admins can create posts.")
+    }
+
     if (!title || !body) return alert("Title and body are required")
     if (!user) return alert("User not loaded")
 
     setLoading(true)
 
     try {
-      const { data: existingUser } = await supabase
-        .from("users")
-        .select("id")
-        .eq("id", user.id)
-        .maybeSingle()
-
-      if (!existingUser) {
-        const { error: userError } = await supabase.from("users").insert({
-          id: user.id,
-          email: user.email,
-          role: "user",
-        })
-
-        if (userError) {
-          console.error("Error creating user record:", userError)
-          setLoading(false)
-          return alert("Error setting up user profile")
-        }
-      }
-
       let summary = ""
       try {
         summary = await generateSummary(body)
@@ -87,6 +85,27 @@ export default function CreatePost() {
     setLoading(false)
   }
 
+  if (loading) return <p className="p-10 text-black">Loading...</p>
+
+  if (!canCreate) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="max-w-md text-center">
+          <h1 className="text-2xl font-bold text-black mb-4">Authors and Admins Only</h1>
+          <p className="text-gray-600 mb-6">
+            You need an Author or Admin account to create posts. You&apos;re currently a <strong>{userRole}</strong>.
+          </p>
+          <button
+            onClick={() => router.push("/")}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+          >
+            Back to Feed
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-xl mx-auto p-10">
@@ -118,7 +137,9 @@ export default function CreatePost() {
                 src={imageUrl}
                 alt="Preview"
                 className="mt-2 w-full h-48 object-cover rounded-lg border border-gray-200"
-                onError={(e: any) => (e.target.style.display = "none")}
+                onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                  e.currentTarget.style.display = "none"
+                }}
               />
             )}
           </div>

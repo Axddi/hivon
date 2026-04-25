@@ -1,6 +1,7 @@
 import { supabase } from "./supabaseClient"
+import type { User } from "@supabase/supabase-js"
 
-export const createUserIfNotExists = async (user: any) => {
+export const createUserIfNotExists = async (user: User) => {
   const { data } = await supabase
     .from("users")
     .select("*")
