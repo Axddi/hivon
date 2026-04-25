@@ -5,12 +5,8 @@ A full-stack blog application with authentication, role-based access, and AI-pow
 ---
 
 ## 🚀 Live Demo
-👉 [Add your deployed URL here]
+👉 [\[Add your deployed URL here\]](https://hivon-lime.vercel.app/)
 
-## 📦 GitHub Repo
-👉 [Add your repo link here]
-
----
 
 ## ✨ Features
 
