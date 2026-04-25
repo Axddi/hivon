@@ -9,6 +9,7 @@ import { generateSummary } from "@/lib/ai"
 export default function CreatePost() {
   const [title, setTitle] = useState("")
   const [body, setBody] = useState("")
+  const [imageUrl, setImageUrl] = useState("")
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
@@ -17,26 +18,23 @@ export default function CreatePost() {
   useEffect(() => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser()
-
       if (!data.user) {
         router.push("/login")
       } else {
         setUser(data.user)
       }
     }
-
     checkUser()
   }, [router])
 
   const handleSubmit = async () => {
-    if (!title || !body) return alert("Fill all fields")
+    if (!title || !body) return alert("Title and body are required")
     if (!user) return alert("User not loaded")
 
     setLoading(true)
 
     try {
       const role = await getUserRole()
-      console.log("ROLE:", role)
 
       if (role !== "author" && role !== "admin") {
         setLoading(false)
@@ -54,6 +52,7 @@ export default function CreatePost() {
         {
           title,
           body,
+          image_url: imageUrl || null,
           author_id: user.id,
           summary,
         },
@@ -67,7 +66,6 @@ export default function CreatePost() {
 
       alert("Post created successfully!")
       router.push("/")
-
     } catch (err) {
       console.error(err)
       alert("Something went wrong")
@@ -77,30 +75,68 @@ export default function CreatePost() {
   }
 
   return (
-    <div className="p-10 flex flex-col gap-4 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold">Create Post</h1>
+    <div className="max-w-xl mx-auto p-10">
+      <h1 className="text-xl font-bold mb-6">Create Post</h1>
 
-      <input
-        placeholder="Title"
-        className="border p-2"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-      />
+      <div className="flex flex-col gap-4">
+        <div>
+          <label className="text-sm text-gray-600 mb-1 block">Title *</label>
+          <input
+            placeholder="Post title"
+            className="border border-gray-200 p-2 w-full rounded-lg focus:outline-none focus:border-gray-400"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
 
-      <textarea
-        placeholder="Write your content..."
-        className="border p-2 h-40"
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-      />
+        <div>
+          <label className="text-sm text-gray-600 mb-1 block">
+            Featured Image URL
+          </label>
+          <input
+            placeholder="https://example.com/image.jpg"
+            className="border border-gray-200 p-2 w-full rounded-lg focus:outline-none focus:border-gray-400"
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+          />
+          {imageUrl && (
+            <img
+              src={imageUrl}
+              alt="Preview"
+              className="mt-2 w-full h-48 object-cover rounded-lg border border-gray-200"
+              onError={(e: any) => (e.target.style.display = "none")}
+            />
+          )}
+        </div>
 
-      <button
-        onClick={handleSubmit}
-        disabled={loading}
-        className="bg-blue-500 text-white p-2 disabled:opacity-50"
-      >
-        {loading ? "Publishing..." : "Publish"}
-      </button>
+        <div>
+          <label className="text-sm text-gray-600 mb-1 block">
+            Body Content *
+          </label>
+          <textarea
+            placeholder="Write your content..."
+            className="border border-gray-200 p-2 w-full h-40 rounded-lg focus:outline-none focus:border-gray-400 resize-none"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-green-700 text-green-100 px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex-1"
+          >
+            {loading ? "Publishing..." : "Publish"}
+          </button>
+          <button
+            onClick={() => router.push("/")}
+            className="border border-gray-200 px-4 py-2 rounded-lg text-gray-600"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

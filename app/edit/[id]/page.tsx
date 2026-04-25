@@ -1,93 +1,78 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter, useParams } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
-import { useRouter } from "next/navigation"
-import { getUserRole } from "@/lib/getUserRole"
 
-export default function EditPost({ params }: any) {
-  const [title, setTitle] = useState("")
-  const [content, setContent] = useState("")
-  const [post, setPost] = useState<any>(null)
+export default function EditPost() {
+  const { id } = useParams()
   const router = useRouter()
 
+  const [title, setTitle] = useState("")
+  const [body, setBody] = useState("")
+  const [loading, setLoading] = useState(true)
+
   useEffect(() => {
-    fetchPost()
-  }, [])
+    const fetchPost = async () => {
+      const { data, error } = await supabase
+        .from("posts")
+        .select("*")
+        .eq("id", id)
+        .single()
 
-  const fetchPost = async () => {
-    const { data } = await supabase
-      .from("posts")
-      .select("*")
-      .eq("id", params.id)
-      .single()
+      if (error || !data) {
+        alert("Post not found")
+        router.push("/")
+        return
+      }
 
-    if (!data) {
-      alert("Post not found")
-      router.push("/")
-      return
+      setTitle(data.title)
+      setBody(data.body)
+      setLoading(false)
     }
 
-    setPost(data)
-    setTitle(data.title)
-    setContent(data.content)
-  }
+    if (id) fetchPost()
+  }, [id, router])
 
-  const updatePost = async () => {
-    const { data: userData } = await supabase.auth.getUser()
-
-    if (!userData.user) {
-      alert("Login required")
-      return
-    }
-
-    const role = await getUserRole(userData.user.id)
-
-    // 🔒 PERMISSION CHECK
-    if (
-      role !== "admin" &&
-      !(role === "author" && post.author_id === userData.user.id)
-    ) {
-      alert("Not allowed to edit this post")
-      return
-    }
-
+  const handleUpdate = async () => {
     const { error } = await supabase
       .from("posts")
       .update({
         title,
-        content,
+        body,
       })
-      .eq("id", params.id)
+      .eq("id", id)
 
     if (error) {
-      alert("Error updating post")
-      return
+      console.error(error)
+      return alert("Error updating post")
     }
 
     alert("Post updated!")
     router.push("/")
   }
 
+  if (loading) return <p className="p-10">Loading...</p>
+
   return (
-    <div className="p-10">
-      <h1 className="text-xl font-bold mb-4">Edit Post</h1>
+    <div className="p-10 max-w-xl mx-auto flex flex-col gap-4">
+      <h1 className="text-2xl font-bold">Edit Post</h1>
 
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        className="border p-2 w-full mb-2"
+        className="border p-2"
       />
 
       <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        className="border p-2 w-full h-40"
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        className="border p-2 h-40"
       />
 
       <button
-        onClick={updatePost}
-        className="bg-green-500 text-white px-4 py-2 mt-2"
+        onClick={handleUpdate}
+        className="bg-green-500 text-white p-2"
       >
         Update
       </button>
