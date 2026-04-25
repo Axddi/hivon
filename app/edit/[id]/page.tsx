@@ -52,30 +52,46 @@ export default function EditPost() {
     router.push("/")
   }
 
-  if (loading) return <p className="p-10">Loading...</p>
+  if (loading) return <p className="p-10 text-black">Loading...</p>
 
   return (
-    <div className="p-10 max-w-xl mx-auto flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">Edit Post</h1>
+    <div className="min-h-screen bg-white">
+      <div className="max-w-xl mx-auto p-10 flex flex-col gap-4">
+        <h1 className="text-2xl font-bold text-black mb-6">Edit Post</h1>
 
-      <input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="border p-2"
-      />
+        <div>
+          <label className="text-sm text-gray-600 mb-1 block">Title</label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="border border-gray-200 p-2 w-full rounded-lg text-black placeholder-gray-400 focus:outline-none focus:border-blue-400"
+          />
+        </div>
 
-      <textarea
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        className="border p-2 h-40"
-      />
+        <div>
+          <label className="text-sm text-gray-600 mb-1 block">Content</label>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            className="border border-gray-200 p-2 w-full h-40 rounded-lg text-black placeholder-gray-400 focus:outline-none focus:border-blue-400 resize-none"
+          />
+        </div>
 
-      <button
-        onClick={handleUpdate}
-        className="bg-green-500 text-white p-2"
-      >
-        Update
-      </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleUpdate}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex-1"
+          >
+            Update
+          </button>
+          <button
+            onClick={() => router.push("/")}
+            className="border border-gray-200 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

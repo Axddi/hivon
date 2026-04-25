@@ -57,7 +57,7 @@ export default function Home() {
 
     let query = supabase
       .from("posts")
-      .select(`*, users ( email, role )`, { count: "exact" })
+      .select(`*, users ( email, role, id )`, { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to)
 
@@ -84,6 +84,21 @@ export default function Home() {
     setPage(1)
   }
 
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm("Are you sure you want to delete this post?")) return
+
+    const { error } = await supabase.from("posts").delete().eq("id", postId)
+
+    if (error) {
+      console.error("Error deleting post:", error)
+      alert("Failed to delete post")
+      return
+    }
+
+    // Remove the post from the UI
+    setPosts(posts.filter((p) => p.id !== postId))
+  }
+
   const statsTotal = totalCount
   const statsSummary = posts.filter(
     (p) =>
@@ -95,6 +110,17 @@ export default function Home() {
 
   const getInitials = (email: string) =>
     email?.split("@")[0].slice(0, 2).toUpperCase() || "??"
+
+  const getAuthorName = (post: any) => {
+    if (post.users?.email) {
+      return post.users.email.split("@")[0]
+    }
+    return "unknown"
+  }
+
+  const getAuthorEmail = (post: any) => {
+    return post.users?.email || ""
+  }
 
   const getRoleBadge = (role: string) => {
     if (role === "author") return "bg-green-100 text-green-700"
@@ -198,14 +224,19 @@ export default function Home() {
                   key={post.id}
                   className="border border-gray-200 rounded-xl p-5 bg-white hover:border-blue-200 transition-colors shadow-sm"
                 >
-                  <div className="flex justify-between items-center mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium text-blue-600">
-                        {getInitials(post.users?.email || "")}
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-600">
+                        {getInitials(getAuthorEmail(post))}
                       </div>
-                      <span className="text-sm text-gray-600">
-                        @{post.users?.email?.split("@")[0] || "unknown"}
-                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {getAuthorName(post)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {getAuthorEmail(post)}
+                        </p>
+                      </div>
                       {post.users?.role && (
                         <span
                           className={`text-xs px-2 py-0.5 rounded-full font-medium ${getRoleBadge(
@@ -249,7 +280,7 @@ export default function Home() {
                     </div>
                   )}
                   {canEdit && (
-                    <div className="flex justify-end pt-3 border-t border-gray-100">
+                    <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
                       <button
                         onClick={() => router.push(`/edit/${post.id}`)}
                         className="text-xs text-blue-500 hover:text-blue-700 font-medium"
@@ -257,6 +288,12 @@ export default function Home() {
                         {userRole === "admin" && user?.id !== post.author_id
                           ? "Edit post (admin)"
                           : "Edit post"}
+                      </button>
+                      <button
+                        onClick={() => handleDeletePost(post.id)}
+                        className="text-xs text-red-500 hover:text-red-700 font-medium"
+                      >
+                        Delete
                       </button>
                     </div>
                   )}
